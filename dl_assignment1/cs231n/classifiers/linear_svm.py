@@ -49,8 +49,20 @@ def svm_loss_naive(W, X, y, reg):
   # it may be simpler to compute the derivative at the same time that the     #
   # loss is being computed. As a result you may need to modify some of the    #
   # code above to compute the gradient.                                       #
-  #############################################################################
+  ############################################################################
+  for i in xrange(num_train):
+    scores = X[i].dot(W)
+    correct_class_score = scores[y[i]]
+    for j in xrange(num_classes):
+      if j == y[i]:
+        continue
+      margin = scores[j] - correct_class_score + 1 # note delta = 1
+      if margin > 0:
+        dW[:, j] += X[i].T
+        dW[:, y[i]] -= X[i].T
 
+  dW /= num_train
+  dW += reg * W
 
   return loss, dW
 
@@ -69,7 +81,17 @@ def svm_loss_vectorized(W, X, y, reg):
   # Implement a vectorized version of the structured SVM loss, storing the    #
   # result in loss.                                                           #
   #############################################################################
-  pass
+  
+  num_train = X.shape[0]
+  num_classes = W.shape[1]
+    
+  S = X.dot(W)
+  D = np.choose(y, S.T).T
+  S = (S.T - D).T + 1
+  mask = np.zeros((num_train, num_classes))
+  mask[np.arange(num_train), y] = 1
+  loss = np.sum(np.fmax(0, S) - mask) / num_train
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -84,7 +106,14 @@ def svm_loss_vectorized(W, X, y, reg):
   # to reuse some of the intermediate values that you used to compute the     #
   # loss.                                                                     #
   #############################################################################
-  pass
+  
+  mask[np.arange(num_train), y] = np.sum(S > 0, axis = 1)
+  assert X.T.shape[1] == mask.shape[0]
+  assert (S > 0).shape == mask.shape
+  dW = X.T.dot((S > 0) - mask) / num_train
+
+  dW += reg * W
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
