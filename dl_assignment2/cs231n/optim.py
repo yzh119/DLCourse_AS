@@ -65,7 +65,12 @@ def sgd_momentum(w, dw, config=None):
   # TODO: Implement the momentum update formula. Store the updated value in   #
   # the next_w variable. You should also use and update the velocity v.       #
   #############################################################################
-  pass
+  
+  mu = config['momentum']
+  lr = config['learning_rate']
+    
+  v = v * mu - lr * dw
+  next_w = w + v
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -99,7 +104,16 @@ def rmsprop(x, dx, config=None):
   # in the next_x variable. Don't forget to update cache value stored in      #  
   # config['cache'].                                                          #
   #############################################################################
-  pass
+  lr = config['learning_rate']
+  eps = config['epsilon']
+  dr = config['decay_rate']
+  ag = config['cache']
+
+  ag = ag * dr + (1 - dr) * (dx ** 2) # Why? There is a 'lr' item in the lecture slide.
+  config['cache'] = ag
+    
+  next_x = x - lr * dx / np.sqrt(eps + ag)
+  
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
@@ -136,7 +150,23 @@ def adam(x, dx, config=None):
   # the next_x variable. Don't forget to update the m, v, and t variables     #
   # stored in config.                                                         #
   #############################################################################
-  pass
+  
+  lr = config['learning_rate']
+  b1 = config['beta1']
+  b2 = config['beta2']
+  eps = config['epsilon']
+  m = config['m']
+  v = config['v']
+  t = config['t']
+
+  t += 1
+  m = b1 * m + (1 - b1) * dx
+  v = b2 * v + (1 - b2) * (dx ** 2)
+
+  config['t'], config['m'], config['v'] = t, m, v
+  
+  next_x = x - lr * m / (1 - b1 ** t) / (eps + np.sqrt(v / (1 - b2 ** t)))
+
   #############################################################################
   #                             END OF YOUR CODE                              #
   #############################################################################
