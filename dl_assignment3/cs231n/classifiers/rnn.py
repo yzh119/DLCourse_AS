@@ -135,7 +135,40 @@ class CaptioningRNN(object):
     # defined above to store loss and gradients; grads[k] should give the      #
     # gradients for self.params[k].                                            #
     ############################################################################
-    pass
+    
+    if self.cell_type == 'rnn':
+        fwd = rnn_forward
+        bwd = rnn_backward
+    else:
+        fwd = lstm_forward
+        bwd = lstm_backward    
+    grads = {}
+    
+    # Forward
+    h0 = features.dot(W_proj) + b_proj
+    x, embedding_cache = word_embedding_forward(captions_in, W_embed)
+    h, rnn_cache = fwd(x, h0, Wx, Wh, b)
+    scores, scores_cache = temporal_affine_forward(h, W_vocab, b_vocab)
+    
+    loss, dscores = temporal_softmax_loss(scores, captions_out, mask)
+    
+    # Backward and Collect grads
+    dh, dW_vocab, db_vocab = temporal_affine_backward(dscores, scores_cache)
+    grads['W_vocab'] = dW_vocab
+    grads['b_vocab'] = db_vocab
+    
+    dx, dh0, dWx, dWh, db = bwd(dh, rnn_cache)
+    grads['Wx'] = dWx
+    grads['Wh'] = dWh
+    grads['b'] = db
+    
+    dW_embed = word_embedding_backward(dx, embedding_cache)
+    grads['W_embed'] = dW_embed
+    
+    dW_proj = np.dot(features.T, dh0)
+    db_proj = dh0.sum(axis = 0)
+    grads['W_proj'] = dW_proj
+    grads['b_proj'] = db_proj
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
@@ -197,8 +230,37 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
-    ############################################################################
+    
+    LSTM = False
+    if self.cell_type == 'lstm': LSTM = True
+    h0 = features.dot(W_proj) + b_proj
+    prev_cap = np.ones((N, 1), dtype = np.int32) * self._start
+
+    captions[:, 0] = prev_cap[:, 0]
+    prev_h = h0
+    if LSTM: prev_c = np.zeros(h0.shape)
+    
+    for t in xrange(max_length):
+        word_embed, embedding_cache = word_embedding_forward(
+            prev_cap, W_embed)
+        # print word_embed.shape
+        if LSTM:
+            h, c, lstm_cache = lstm_step_forward(
+                word_embed[:, 0, :], prev_h, prev_c, Wx, Wh, b)
+        else:
+            h, rnn_cache = rnn_step_forward(
+                word_embed[:, 0, :], prev_h, Wx, Wh, b)
+        
+        scores, scores_cache = temporal_affine_forward(
+            h[:, None, :], W_vocab, b_vocab)
+        
+        prev_cap = np.argmax(scores, axis = 2)
+        captions[:, t] = prev_cap[:, 0]
+        
+        prev_h = h
+        if LSTM: prev_c = c
+        
+############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################
     return captions
